@@ -1,0 +1,310 @@
+﻿@page "/Entradas/Index"
+@rendermode InteractiveServer
+@inject EntradasService entradasService
+@inject NavigationManager navigationManager
+@inject ToastService toastService
+@attribute [Authorize]
+
+<PageTitle>Registro de Entradas</PageTitle>
+<div class="container">
+    <div class="card shadow-lg">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Registro de Entradas</h5>
+            <a href="/Entradas/Create" class="btn btn-primary">
+                <span class="bi bi-plus-square mt-2"></span> Crear
+            </a>
+        </div>
+
+        <div class="card-body">
+
+            @* Labels *@
+            <div class="row">
+                <div class="col-3">
+                    <label class="col-form-label"><strong>Filtrar por</strong></label>
+                </div>
+
+                <div class="col-4">
+                    <label class="col-form-label"><strong>Búsqueda</strong></label>
+                </div>
+            </div>
+
+            @*Inputs y botones*@
+           <div class="row align-items-center">
+
+                @*Filtro*@
+                <div class="col-3">
+                    <InputSelect class="form-select" @bind-Value="Filtro">
+                        <option value="" selected disabled>Elija una opción</option>
+                        <option value="EntradaId">EntradaId</option>
+                        <option value="Fecha">Fecha</option>
+                        <option value="Concepto">Concepto</option>
+                        <option value="Total">Total</option>
+                    </InputSelect>
+                </div>
+
+                @*Búsqueda*@
+                <div class="col-4">
+                    <div class="input-group">
+                        <input class="form-control" @bind="ValorFiltro" placeholder="Buscar..." />
+                        <button type="button" class="btn btn-outline-primary bi bi-search" @onclick="Buscar"></button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="Restablecer">
+                            <span class="bi bi-arrow-counterclockwise"></span>
+                        </button>
+                    </div>
+                </div>
+           </div>
+
+            @*Filtro por fecha*@
+            @if (Filtro == "Fecha")
+            {
+                <div class="row mt-3">
+                    <div class="col-3">
+                        <label class="col-form-label"><strong>Desde</strong></label>
+                        <InputDate class="form-control" @bind-Value="Desde"></InputDate>
+                    </div>
+
+                    <div class="col-3">
+                        <label class="col-form-label"><strong>Hasta</strong></label>
+                        <InputDate class="form-control" @bind-Value="Hasta"></InputDate>
+                    </div>
+
+                    <div class="col-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-primary w-100" @onclick="Buscar">
+                            <span class="bi bi-search"></span> Filtrar
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <table class="table table-hover mt-3">
+                <thead class="table table-striped text-black">
+                    <tr>
+                        <th>EntradaId</th>
+                        <th>Fecha</th>
+                        <th>Concepto</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-center">Opciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in ListaEntradas)
+                    {
+                        <tr>
+                            <td>@e.EntradaId</td>
+                            <td>@e.Fecha.ToShortDateString()</td>
+                            <td>@e.Concepto</td>
+                            <td class="text-end">@e.Total.ToString("N2")</td>
+
+                            <td class="text-center">
+                                <a class="btn btn-outline-primary bi bi-pencil-square"
+                                   href="/Entradas/Edit/@e.EntradaId"></a>
+
+                                <button type="button"
+                                        class="btn btn-outline-danger ms-1"
+                                        @onclick="() => MostrarModalEliminar(e.EntradaId)">
+                                    <span class="bi bi-trash"></span>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (!string.IsNullOrWhiteSpace(Mensaje))
+            {
+                <div class="alert alert-warning mt-3" role="alert">
+                    @Mensaje
+                </div>
+            }
+
+        </div>
+
+        <div class="card-footer">
+            <div class="d-flex justify-content-between">
+                <strong>Cantidad: @ListaEntradas.Count</strong>
+                <strong>Total: @ListaEntradas.Sum(x => x.Total).ToString("N2")</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (MostrarConfirmacion)
+{
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <span class="bi bi-exclamation-triangle me-2"></span>
+                        Confirmar eliminación
+                    </h5>
+                </div>
+
+                <div class="modal-body text-center">
+                    <p class="mb-0">
+                        ¿Estás segura de que deseas eliminar esta entrada?
+                    </p>
+                    <small class="text-muted">
+                        Esta acción no se puede deshacer.
+                    </small>
+                </div>
+
+                <div class="modal-footer justify-content-center">
+                    <button type="button"
+                            class="btn btn-danger"
+                            @onclick="@(async () => await EliminarConfirmado())">
+                        Sí, eliminar
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            @onclick="CerrarModal">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+@code {
+    public List<Entradas> ListaEntradas { get; set; } = new List<Entradas>();
+    public string ValorFiltro { get; set; } = string.Empty;
+    public string Filtro { get; set; } = string.Empty;
+
+    public DateTime? Desde { get; set; }
+    public DateTime? Hasta { get; set; }
+
+    public bool MostrarConfirmacion { get; set; } = false;
+
+    public int EntradaIdSeleccionado { get; set; } = 0;
+
+    public string Mensaje { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ListaEntradas = await entradasService.Listar(e => e.EntradaId > 0);
+        Desde = null;
+        Hasta = null;
+    }
+
+    private async Task Buscar()
+    {
+        Mensaje = "";
+        var v = (ValorFiltro ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(Filtro))
+        {
+            Mensaje = "Seleccione una opción en 'Filtrar por'.";
+            toastService.ShowWarning(Mensaje);
+            return;
+        }
+
+        if (Filtro == "Fecha")
+        {
+            if (Desde is null || Hasta is null)
+            {
+                Mensaje = "Debe indicar 'Desde' y 'Hasta'.";
+                toastService.ShowWarning(Mensaje);
+                return;
+            }
+
+            var d = Desde.Value.Date;
+            var h = Hasta.Value.Date.AddDays(1).AddTicks(-1);
+
+            ListaEntradas = await entradasService.Listar(e => e.Fecha >= d && e.Fecha <= h);
+
+            if (ListaEntradas.Count == 0)
+            {
+                Mensaje = "No se encontraron entradas en ese rango de fechas.";
+                toastService.ShowWarning(Mensaje);
+            }
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(v))
+        {
+            Mensaje = "Digite un valor para buscar.";
+            toastService.ShowWarning(Mensaje);
+            return;
+        }
+
+
+        if (Filtro == "EntradaId")
+        {
+            if (!int.TryParse(v, out var id))
+            {
+                Mensaje = "EntradaId debe ser numérico.";
+                toastService.ShowWarning(Mensaje);
+                return;
+            }
+
+            ListaEntradas = await entradasService.Listar(e => e.EntradaId == id);
+        }
+
+        else if (Filtro == "Concepto")
+        {
+            var lower = v.ToLower();
+            ListaEntradas = await entradasService.Listar(e =>
+                e.Concepto != null && e.Concepto.ToLower().Contains(lower));
+        }
+
+        else if (Filtro == "Total")
+        {
+            if (!double.TryParse(v, out var total))
+            {
+                Mensaje = "Total debe ser numérico.";
+                toastService.ShowWarning(Mensaje);
+                return;
+            }
+            ListaEntradas = await entradasService.Listar(e => e.Total == total);
+        }
+
+        if (ListaEntradas.Count == 0)
+        {
+            Mensaje = "No se encontraron registros con ese criterio.";
+            toastService.ShowWarning(Mensaje);
+        }
+    }
+
+    public async Task Restablecer()
+    {
+        ListaEntradas = await entradasService.Listar(e => e.EntradaId > 0);
+        ValorFiltro = string.Empty;
+        Filtro = string.Empty;
+        Desde = null;
+        Hasta = null;
+        Mensaje = "";
+    }
+
+    private async Task EliminarConfirmado()
+    {
+
+        MostrarConfirmacion = false;
+
+        var eliminado = await entradasService.Eliminar(EntradaIdSeleccionado);
+
+        if (eliminado)
+        {
+            toastService.ShowSuccess("Se ha eliminado correctamente.");
+            ListaEntradas = await entradasService.Listar(e => e.EntradaId > 0);
+        }
+        else
+        {
+            toastService.ShowError("No se ha podido eliminar correctamente.");
+        }
+
+        EntradaIdSeleccionado = 0;
+    }
+
+    private void MostrarModalEliminar(int entradaId)
+    {
+        EntradaIdSeleccionado = entradaId;
+        MostrarConfirmacion = true;
+    }
+
+    private void CerrarModal()
+    {
+        MostrarConfirmacion = false;
+        EntradaIdSeleccionado = 0;
+    }
+}

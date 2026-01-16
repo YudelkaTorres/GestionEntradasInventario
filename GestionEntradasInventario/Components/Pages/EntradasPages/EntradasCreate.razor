@@ -1,0 +1,176 @@
+﻿@page "/Entradas/Create"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@inject EntradasService entradasService
+@inject ProductosService productosService
+@inject NavigationManager navigationManager
+@inject ToastService toastService
+
+<PageTitle>Crear Entrada</PageTitle>
+
+<EditForm Model="Entrada" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator/>
+
+    <div class="container">
+        <div class="card shadow-lg">
+            <div class="card-header text-center">
+                <h5 class="card-title">Crear Entrada</h5>
+            </div>
+
+            <div class="card-body">
+                @*EntradaId*@
+                <div class="mb-3">
+                    <label class="form-label"> <strong>EntradaId</strong></label>
+                    <InputNumber class="form-control" @bind-Value="Entrada.EntradaId" readonly></InputNumber>
+                </div>
+
+                @*Fecha*@
+                <div class="mb-3">
+                    <label class="form-label"><strong>Fecha</strong></label>
+                    <InputDate class="form-control" @bind-Value="Entrada.Fecha" />
+                    <ValidationMessage For="(() => Entrada.Fecha)" class="text-danger" />
+                </div>
+
+                @*Concepto*@
+                <div class="mb-3">
+                    <label class="form-label"><strong>Concepto</strong></label>
+                    <InputText class="form-control" @bind-Value="Entrada.Concepto" />
+                    <ValidationMessage For="(() => Entrada.Concepto)" class="text-danger" />
+                </div>
+
+                @*Detalles de la Entrada*@
+                <div class="border border-success p-3 mt-3">
+                    <h5>Detalles de la Entrada</h5>
+
+                    <ProductoPicker Productos="ListaProductos" 
+                                    ProductoId="DetalleSeleccionado.ProductoId"
+                                    Cantidad="DetalleSeleccionado.Cantidad"
+                                    Costo="DetalleSeleccionado.Costo"
+                                    OnProductoSelected="HandleProductoSelected"/>
+                    <hr />
+                    <table class="table table-light">
+                        <thead class="table table-spriped">
+                            <tr class="text-center">
+                                <th>DetalleId</th>
+                                <th>ProductoId</th>
+                                <th>Descripción</th>
+                                <th class="text-end">Cantidad</th>
+                                <th class="text-end">Costo</th>
+                                <th class="text-end">Importe</th>
+                                <th class="text-center">Remover</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var detalle in Entrada.EntradasDetalle)
+                            {
+                                <tr class="text-center align-middle">
+                                    <td>@detalle.DetalleId</td>
+                                    <td>@detalle.ProductoId</td>
+                                    <td>@GetProductoDescripcion(detalle.ProductoId)</td>
+                                    <td class="text-end">@detalle.Cantidad</td>
+                                    <td class="text-end">@detalle.Costo.ToString("N2")</td>
+                                    <td class="text-end">@((detalle.Cantidad * detalle.Costo).ToString("N2"))</td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-outline-danger bi bi-trash" 
+                                            @onclick="() => RemoverDetalle(detalle)"></button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <hr/>
+                </div>
+
+                @*Total*@
+                <div class="row">
+                    <div class="col-6 offset-6">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Total</strong></label>
+                            <label class="form-control text-end"><strong>@Entrada.Total.ToString("N2")</strong></label>
+
+                            <ValidationMessage For="(() => Entrada.Total)" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            @*Footer*@
+            <div class="card-footer text-center mt-2">
+                <a href="/Entradas/Index" class="btn btn-secondary"> <span class="bi bi-arrow-left"></span> Volver</a>
+                <button type="submit" class="btn btn-primary bi bi-floppy"> Guardar</button>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    public Entradas Entrada { get; set; } = new Entradas();
+    public EntradasDetalle DetalleSeleccionado { get; set; } = new();
+    public List<Productos> ListaProductos { get; set; } = new List<Productos>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ListaProductos = await productosService.Listar(p => p.ProductoId > 0);
+
+        Entrada.Fecha = DateTime.Now;
+        Entrada.EntradasDetalle = new List<EntradasDetalle>();
+        RecalcularTotal();
+    }
+
+    private string GetProductoDescripcion(int productoId)
+    {
+        var p = ListaProductos.FirstOrDefault(x => x.ProductoId == productoId);
+        return p?.Descripcion ?? $"Producto #{productoId}";
+    }
+
+    private async Task HandleProductoSelected((Productos producto, int cantidad, double costo) selection)
+    {
+        var detalle = new EntradasDetalle
+        {
+            ProductoId = selection.producto.ProductoId,
+            Cantidad = selection.cantidad,
+            Costo = selection.costo
+        };
+
+        Entrada.EntradasDetalle.Add(detalle);
+        Entrada.Total = Entrada.EntradasDetalle.Sum(d => d.Cantidad * d.Costo);
+
+        DetalleSeleccionado = new EntradasDetalle();
+        await Task.CompletedTask;
+    }
+
+    private void RecalcularTotal()
+    {
+        Entrada.Total = Entrada.EntradasDetalle.Sum(d => d.Cantidad * d.Costo);
+    }
+    private async Task Guardar()
+    {
+        if (Entrada.EntradasDetalle.Count == 0)
+        {
+            toastService.ShowError("Debe agregar al menos un detalle.");
+            return;
+        }
+
+        RecalcularTotal();
+
+        var ok = await entradasService.Guardar(Entrada);
+
+        if (ok)
+        {
+            toastService.ShowSuccess("Entrada guardada correctamente.");
+            navigationManager.NavigateTo("/entradas/index");
+        }
+        else
+        {
+            toastService.ShowError("No se pudo guardar correctamente");
+        }
+    }
+
+    public void RemoverDetalle(EntradasDetalle detalle)
+    {
+        Entrada.EntradasDetalle.Remove(detalle);
+        RecalcularTotal();
+        DetalleSeleccionado = detalle;
+    }
+}
