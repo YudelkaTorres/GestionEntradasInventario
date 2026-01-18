@@ -1,0 +1,84 @@
+﻿<div class="col-auto input-group align-items-center">
+    <label class="col-form-label input-group-text">Seleccione:</label>
+
+    <InputSelect class="form-control form-select" 
+        @bind-Value="ProductoId"
+        @bind-Value:after="ProductoChanged">
+        <option disabled value="0">-- Seleccione un producto --</option>
+        @foreach (var producto in Productos)
+        {
+            <option value="@producto.ProductoId">
+                @producto.ProductoId - @producto.Descripcion
+            </option>
+        }
+    </InputSelect>
+
+    <label class="col-form-label input-group-text">Cantidad:</label>
+    <InputNumber class="form-control" @bind-Value="Cantidad" min="0" />
+
+    <label class="col-form-label input-group-text">Costo:</label>
+    <InputNumber class="form-control" @bind-Value="Costo" min="0" readonly/>
+
+    <button type="button" class="btn btn-outline-success bi bi-plus" @onclick="TriggerSelection">Agregar</button>
+</div>
+
+@if (ErrorMessage != null)
+{
+    <div class="alert alert-danger mt-2" role="alert">
+        @ErrorMessage
+    </div>
+}
+
+
+@code {
+    [Parameter]
+    public List<Productos> Productos { get; set; } = [];
+
+    [Parameter]
+    public int ProductoId { get; set; }
+
+    [Parameter]
+    public int Cantidad { get; set; }
+
+    [Parameter]
+    public double Costo { get; set; }
+
+    [Parameter]
+    public EventCallback<(Productos Producto, int Cantidad, double Costo)> OnProductoSelected { get; set; }
+
+    private string? ErrorMessage { get; set; } = null;
+
+    private async Task TriggerSelection()
+    {
+        ErrorMessage = null;
+
+        if (ProductoId <= 0)
+        {
+            ErrorMessage = "Debe seleccionar un producto.";
+            return;
+        }
+
+        if (Cantidad <= 0)
+        {
+            ErrorMessage = "La cantidad debe ser mayor que 0.";
+            return;
+        }
+
+        var productoSeleccionado = Productos.Single(p => p.ProductoId == ProductoId);
+        Costo = productoSeleccionado.Costo;
+
+        await OnProductoSelected.InvokeAsync((productoSeleccionado, Cantidad, Costo));
+
+        ProductoId = 0;
+        Cantidad = 0;
+        Costo = 0;
+
+    }
+
+    private void ProductoChanged()
+    {
+        var producto = Productos.FirstOrDefault(p => p.ProductoId == ProductoId);
+        Costo = producto?.Costo ?? 0;
+    }
+
+}
