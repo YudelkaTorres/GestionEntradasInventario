@@ -1,0 +1,178 @@
+﻿@page "/productos/edit/{ProductoId:int}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@inject NavigationManager navigationManager
+@inject ProductosService productoService
+@inject ToastService toastService
+
+<PageTitle>ProductosEdit</PageTitle>
+
+<EditForm Model="Producto" OnValidSubmit="Modificar">
+    <DataAnnotationsValidator/>
+
+    <div class="container">
+        <div class="card shadow-lg">
+                <div class="card-header text-center">
+                    <h5 class="card-title"> Modificar Producto</h5>
+                </div>
+
+            <div class="card-body">
+                @*ProductoId*@
+                <div class="mb-3">
+                    <label class="form-label"><strong>ProductoId</strong></label>
+                    <InputNumber class="form-control" @bind-Value="Producto.ProductoId" readonly />
+                </div>
+
+                @*Descripción*@
+                <div class="mb-3">
+                    <label class="form-label"><strong>Descripción</strong></label>
+                    <InputText class="form-control" @bind-Value="Producto.Descripcion" />
+                    <ValidationMessage For="(() => Producto.Descripcion)" class="text-danger" />
+                </div>
+
+                <div class="row">
+                    @*Costo*@
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Costo</strong></label>
+                            <InputNumber class="form-control" @bind-Value="Producto.Costo" />
+                            <ValidationMessage For="(() => Producto.Costo)" class="text-danger" />
+                        </div>
+
+                    @*Precio*@
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Precio</strong></label>
+                            <InputNumber class="form-control" @bind-Value="Producto.Precio" />
+                            <ValidationMessage For="(() => Producto.Precio)" class="text-danger" />
+                        </div>
+                </div>
+
+                @*Existencia*@
+                <div class="mb-3">
+                    <label class="form-label"><strong>Existencia</strong></label>
+                    <InputNumber class="form-control" @bind-Value="Producto.Existencia" readonly />
+                    <div class="form-text">
+                        La existencia se actualiza automáticamente al registrar Entradas.
+                    </div>
+                </div>
+            </div>
+
+            @*Footer*@
+            <div class="card-footer text-center mt-2">
+                <a href="/Productos/Index" class="btn btn-secondary">
+                    <span class="bi bi-arrow-left"></span> Volver
+                </a>
+                <button type="submit" class="btn btn-primary bi bi-floppy"> Modificar</button>
+
+                <button type="button" class="btn btn-danger bi bi-trash" @onclick="MostrarModalEliminar"> Eliminar</button>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@if (MostrarConfirmacion)
+{
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <span class="bi bi-exclamation-triangle me-2"></span>
+                        Confirmar eliminación
+                    </h5>
+                </div>
+
+                <div class="modal-body text-center">
+                    <p class="mb-0">
+                        ¿Estás segura de que deseas eliminar este producto?
+                    </p>
+                    <small class="text-muted">
+                        Esta acción no se puede deshacer.
+                    </small>
+                </div>
+
+                <div class="modal-footer justify-content-center">
+                    <button type="button"
+                            class="btn btn-danger"
+                            @onclick="Eliminar">
+                        Sí, eliminar
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            @onclick="CerrarModal">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    [Parameter]
+    public int ProductoId { get; set; }
+
+    public Productos Producto { get; set; } = new Productos();
+
+    public bool ConfirmarEliminar { get; set; } = false;
+
+    public bool MostrarConfirmacion { get; set; } = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var producto = await productoService.Buscar(ProductoId);
+
+        if (producto is null)
+        {
+            toastService.ShowError("Producto no encontrado.");
+            navigationManager.NavigateTo("/Productos/Index");
+            return;
+        }
+
+        Producto = producto;
+    }
+
+    public async Task Modificar()
+    {
+        var creado = await productoService.Guardar(Producto);
+
+        if (creado)
+        {
+            toastService.ShowSuccess("Se ha modificado correctamente.");
+            navigationManager.NavigateTo("/Productos/Index");
+        }
+        else
+        {
+            toastService.ShowError("No se ha podido modificar correctamente.");
+        }
+    }
+
+    private void CerrarModal()
+    {
+        MostrarConfirmacion = false;
+    }
+
+    private void MostrarModalEliminar()
+    {
+        MostrarConfirmacion = true;
+    }
+
+    public async Task Eliminar()
+    {   
+        MostrarConfirmacion = false;
+
+        var eliminado = await productoService.Eliminar(ProductoId);
+
+        if (eliminado)
+        {
+            toastService.ShowSuccess("Se ha eliminado correctamente.");
+            navigationManager.NavigateTo("/Productos/Index");
+        }
+        else
+        {
+            toastService.ShowError("No se ha podido eliminar correctamente.");
+        }
+    }
+}

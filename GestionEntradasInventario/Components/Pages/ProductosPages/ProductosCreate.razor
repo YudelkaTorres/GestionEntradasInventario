@@ -1,0 +1,99 @@
+﻿@page "/productos/create"
+@rendermode InteractiveServer
+@inject NavigationManager navigationManager
+@inject ProductosService productoService
+@inject ToastService toastService
+@attribute [Authorize]
+
+<PageTitle>Crear Producto</PageTitle>
+
+<EditForm Model="Producto" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator/>
+
+    <div class="container">
+        <div class="card shadow-lg">
+            <div class="card-header text-center">
+                <h5 class="card-title">Crear Producto</h5>
+            </div>
+
+            <div class="card-body">
+                @*ProductoId*@
+                <div class="mb-3">
+                    <label class="form-label"> <strong>ProductoId</strong></label>
+                    <InputNumber class="form-control" @bind-Value="Producto.ProductoId" readonly></InputNumber>
+                </div>
+
+                @*Descripción*@
+                <div class="mb-3">
+                    <label class="form-label"><strong>Descripción</strong></label>
+                    <InputText class="form-control" @bind-Value="Producto.Descripcion" />
+                    <ValidationMessage For="(() => Producto.Descripcion)" class="text-danger"/>
+                </div>
+
+                <div class="row">
+                    @*Costo*@
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Costo</strong></label>
+                            <InputNumber class="form-control" @bind-Value="Producto.Costo" />
+                            <ValidationMessage For="(() => Producto.Costo)" class="text-danger" />
+                        </div>
+
+                    @*Precio*@
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Precio</strong></label>
+                            <InputNumber class="form-control" @bind-Value="Producto.Precio" />
+                            <ValidationMessage For="(() => Producto.Precio)" class="text-danger" />
+                        </div>
+                </div>
+
+                @*Existencia*@
+                <div class="mb-3">
+                    <label class="form-label"><strong>Existencia</strong></label>
+                    <InputNumber class="form-control" @bind-Value="Producto.Existencia" readonly />
+                    <div class="form-text">
+                        La existencia se actualiza automáticamente al registrar Entradas.
+                    </div>
+                </div>
+            </div>
+
+            @*Footer*@
+            <div class="card-footer text-center mt-2">
+                <button type="button" class="btn btn-secondary" @onclick="Volver">
+                    <span class="bi bi-arrow-left"></span> Volver
+                </button>
+                <button type="submit" class="btn btn-primary bi bi-floppy"> Guardar</button>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    public Productos Producto { get; set; } = new Productos();
+    public string Mensaje { get; set; } = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        Producto.Existencia = 0;
+    }
+
+    public async Task Guardar()
+    {
+        var creado = await productoService.Guardar(Producto);
+
+        if (creado)
+        {
+            toastService.ShowSuccess("Producto Guardado Correctamente");
+            navigationManager.NavigateTo("/Productos/Index");
+        }
+        else
+        {
+            toastService.ShowError("No se pudo guardar correctamente");
+        }
+    }
+
+    private void Volver()
+    {
+        navigationManager.NavigateTo("/Productos/Index");
+    }
+
+}
